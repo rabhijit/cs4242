@@ -4,6 +4,9 @@ cs4242/
 # Private file
 praw.ini
 
+# Locally-stored backup of praw outputs
+*.pkl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
