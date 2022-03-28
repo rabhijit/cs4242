@@ -18,6 +18,9 @@ reddit = praw.Reddit("bot")
 after = int(dt.datetime(2021, 1, 1, 0, 0).timestamp())
 before = int(dt.datetime.today().timestamp())
 
+def get_subreddit_rank(subreddit_name, users_for_subs):
+    pass
+
 
 def get_interlinked_subreddits(subreddit_name, users_for_subs):
     print("Finding related subreddits...")
@@ -29,10 +32,13 @@ def get_interlinked_subreddits(subreddit_name, users_for_subs):
         if subreddit != subreddit_name:
             sub_users = set(users_for_subs[subreddit])
             common_users = users.intersection(sub_users)
-            subreddit_counts[subreddit] = len(common_users)
+            if len(common_users) != 0:
+                subreddit_counts[subreddit] = len(common_users)
 
     subreddit_counts = dict(sorted(subreddit_counts.items(), key=lambda x: x[1], reverse=True))
-    return subreddit_counts
+    df = pd.DataFrame(subreddit_counts.items())
+    df.columns = ['subreddit', 'overlap']
+    return df.head(10)
 
 
 def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
@@ -53,7 +59,7 @@ def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
         for comment in subreddit.comments(limit=comments_per_subreddit):
             if comment.author is not None:
                 users.add(comment.author.name)
-        users_for_subs[subreddit] = list(users)
+        users_for_subs[subreddit.display_name] = list(users)
     
     return users_for_subs
 
@@ -84,7 +90,7 @@ def load_pickle():
 def main():
     users_for_subs = load_pickle()
     counts = get_interlinked_subreddits("science", users_for_subs)
-    print(counts)
+    print(get_subreddit_rank("science", users_for_subs))
 
 
 

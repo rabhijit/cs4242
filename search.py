@@ -4,8 +4,8 @@ import requests
 import streamlit as st
 from streamlit_lottie import st_lottie
 
-#st.set_page_config(page_title="Test", page_icon=":tada:", layout="wide")
-#st.session_state.search_input = ""
+import reddit
+
 
 def view():
     # -- Style --
@@ -29,13 +29,20 @@ def view():
         #st_lottie(lottie_gif, height=220, key=2)
         st.markdown("<h6 style='text-align: center; margin: 0; padding-bottom: 0; font-weight:normal'>results for:</h6><h6 style='text-align: center; padding-top:0; font-size:40px'> r/" + st.session_state.search_input + "</h6>", unsafe_allow_html=True)
         #st.markdown("<h6 style='text-align: center; margin: 0; padding: 0; font-size:60px'>" + st.session_state.search_input + "</h6>", unsafe_allow_html=True)
-        st.markdown("<h6 style='text-align: center; font-weight:normal'>type in a subreddit below to browse its statistics!</h6>", unsafe_allow_html=True)
 
     with st.container():
         buff, search_col, buff2 = st.columns((1, 3, 1))
         with search_col:
             st.write("##")
-            str1 = ""
-            user_input = st.text_input("r/", str1, key=2)
-            st.write(str1)
+            try:
+                with st.spinner("WOW"):
+                    interlinked_subreddits = reddit.get_interlinked_subreddits(st.session_state.search_input, reddit.load_pickle())
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Metrics</h6>", unsafe_allow_html=True)
+                st.write("Coming soon!")
+                st.write("#")
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user overlap</h6>", unsafe_allow_html=True)
+                st.table(interlinked_subreddits)
+            except KeyError:
+                st.warning("Sorry! The subreddit you have requested is not within the top 3000 subreddits. Please try another subreddit.")
+
 
