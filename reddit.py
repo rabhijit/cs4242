@@ -30,7 +30,7 @@ def get_real_subreddit_name(subreddit_name, subreddit_data):
 def get_subreddit_description(subreddit_name, subreddit_data):
     subreddit_info = subreddit_data[INFO]
     description = subreddit_info[subreddit_name].public_description
-    
+
     if not description:
         return "(empty)"
     return description
@@ -75,8 +75,6 @@ def get_interlinked_subreddits(subreddit_name, subreddit_data):
 
 
 def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
-    # TODO: handle subreddits whose names don't follow lowercase format e.g. AskReddit
-    # lowercase to uppercase dictionary
     logger.info("Loading subreddit data from Reddit...")
     subreddit_users = {}
     subreddit_info = {}
@@ -127,12 +125,7 @@ def load_pickle():
 
 
 def main():
-    subreddit_data = load_pickle()
-    print(get_subreddit_metrics("AnNouncements", subreddit_data))
-
-
-
-    
+    pass
 
 
 if __name__ == "__main__":
