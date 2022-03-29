@@ -6,6 +6,9 @@ from streamlit_lottie import st_lottie
 
 import reddit
 
+USERS = 0
+INFO = 1
+NAMES = 2
 
 def view():
     # -- Style --
@@ -35,10 +38,18 @@ def view():
         with search_col:
             st.write("##")
             try:
-                with st.spinner("WOW"):
-                    interlinked_subreddits = reddit.get_interlinked_subreddits(st.session_state.search_input, reddit.load_pickle())
+                with st.spinner("Loading statistics..."):
+                    if st.session_state.subreddit_data is None:
+                        st.session_state.subreddit_data = reddit.load_pickle()
+                    subreddit_name = reddit.get_real_subreddit_name(st.session_state.search_input, st.session_state.subreddit_data)
+                    subreddit_description = reddit.get_subreddit_description(subreddit_name, st.session_state.subreddit_data)
+                    subreddit_metrics = reddit.get_subreddit_metrics(subreddit_name, st.session_state.subreddit_data).style.hide_index()
+                    interlinked_subreddits = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.subreddit_data)
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Description</h6>", unsafe_allow_html=True)
+                st.markdown("<h6 style='font-style:italic; font-weight:normal;'>" + subreddit_description + "</h6>", unsafe_allow_html=True)
+                st.write("#")
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Metrics</h6>", unsafe_allow_html=True)
-                st.write("Coming soon!")
+                st.dataframe(subreddit_metrics)
                 st.write("#")
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user overlap</h6>", unsafe_allow_html=True)
                 st.table(interlinked_subreddits)

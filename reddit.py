@@ -2,8 +2,8 @@ import logging
 import os
 import pickle
 import datetime as dt
-import requests
 import math
+import datetime
 
 import praw
 import pandas as pd
@@ -15,22 +15,55 @@ logging.basicConfig(level=LOGGING_LEVEL, format="%(levelname)s: |%(name)s| %(mes
 
 reddit = praw.Reddit("bot")
 
-after = int(dt.datetime(2021, 1, 1, 0, 0).timestamp())
-before = int(dt.datetime.today().timestamp())
+USERS = 0
+INFO = 1
+NAMES = 2
 
-def get_subreddit_rank(subreddit_name, users_for_subs):
-    pass
+def get_real_subreddit_name(subreddit_name, subreddit_data):
+    subreddit_names = subreddit_data[NAMES]
+
+    try:
+        return subreddit_names[subreddit_name.lower()]
+    except KeyError:
+        return subreddit_name
+
+def get_subreddit_description(subreddit_name, subreddit_data):
+    subreddit_info = subreddit_data[INFO]
+    description = subreddit_info[subreddit_name].public_description
+    
+    if not description:
+        return "(empty)"
+    return description
 
 
-def get_interlinked_subreddits(subreddit_name, users_for_subs):
-    print("Finding related subreddits...")
+def get_subreddit_metrics(subreddit_name, subreddit_data):
+    subreddit_users = subreddit_data[USERS]
+    subreddit_info = subreddit_data[INFO]
+    subreddit_names = subreddit_data[NAMES]
+
+    subscribers = {sub: subreddit_info[sub].subscribers for sub in subreddit_info}
+    ranks = {sub: rank for rank, sub in enumerate(sorted(subscribers, key=subscribers.get, reverse=True), 1)}
+    subscriber_count = subscribers[subreddit_name]
+    rank = ranks[subreddit_name]
+    date = subreddit_info[subreddit_name].created_utc
+    date = datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d')
+    metrics = {"Rank": rank, "Number of subscribers": subscriber_count, "Date created": date}
+    return pd.DataFrame([metrics])
+
+
+def get_interlinked_subreddits(subreddit_name, subreddit_data):
+    logger.info("Finding related subreddits...")
     subreddit_counts = {}
-    users = set(users_for_subs[subreddit_name])
-    count = 0
+    subreddit_users = subreddit_data[USERS]
+    subreddit_info = subreddit_data[INFO]
+    subreddit_names = subreddit_data[NAMES]
+    subreddit_name = subreddit_names[subreddit_name.lower()] # to make lowercase names e.g. 'askreddit' work
+    users = set(subreddit_users[subreddit_name])
 
-    for subreddit in users_for_subs:
+    for subreddit in subreddit_users:
         if subreddit != subreddit_name:
-            sub_users = set(users_for_subs[subreddit])
+            sub_users = subreddit_users[subreddit]
+            sub_info = subreddit_info[subreddit]
             common_users = users.intersection(sub_users)
             if len(common_users) != 0:
                 subreddit_counts[subreddit] = len(common_users)
@@ -42,55 +75,60 @@ def get_interlinked_subreddits(subreddit_name, users_for_subs):
 
 
 def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
+    # TODO: handle subreddits whose names don't follow lowercase format e.g. AskReddit
+    # lowercase to uppercase dictionary
     logger.info("Loading subreddit data from Reddit...")
-    reddit = praw.Reddit("bot")
+    subreddit_users = {}
+    subreddit_info = {}
+    subreddit_names = {}
 
     popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits)]
     logger.debug(f"Subreddits found: {[sub.display_name for sub in popular_subs]}")
 
     count = 0
     len_subs = len(popular_subs)
-    users_for_subs = {}
     for subreddit in popular_subs:
         count += 1
-        logger.info(count, "/", len_subs)
+        logger.info(str(count) + "/" + str(len_subs))
+
+        subreddit_info[subreddit.display_name] = subreddit
+        subreddit_names[subreddit.display_name.lower()] = subreddit.display_name
 
         users = set()
         for comment in subreddit.comments(limit=comments_per_subreddit):
             if comment.author is not None:
-                users.add(comment.author.name)
-        users_for_subs[subreddit.display_name] = list(users)
+                users.add(comment.author)
+        subreddit_users[subreddit.display_name] = users
     
-    return users_for_subs
+    return [subreddit_users, subreddit_info, subreddit_names]
 
 
 def load_pickle():
     if os.path.isfile(SAVE_FILE_NAME):
         if OVERWRITE_EXISTING_FILE:
             logger.warning("Overwriting existing file...")
-            users_for_subs = load_subreddit_data()
+            subreddit_data = load_subreddit_data()
 
             with open(SAVE_FILE_NAME, 'wb') as f:
-                pickle.dump(users_for_subs, f)
+                pickle.dump(subreddit_data, f)
             logger.info(f"Saved data to {SAVE_FILE_NAME}.")
 
         else:
             logger.info("A pickle file with the name already exists. Loading existing file.")
             with open(SAVE_FILE_NAME, 'rb') as f:
-                users_for_subs = pickle.load(f)
+                subreddit_data = pickle.load(f)
     else:
-        users_for_subs = load_subreddit_data()
+        subreddit_data = load_subreddit_data()
         with open(SAVE_FILE_NAME, 'wb') as f:
-            pickle.dump(users_for_subs, f)
+            pickle.dump(subreddit_data, f)
         logger.info(f"Saved data to {SAVE_FILE_NAME}.")
 
-    return users_for_subs
+    return subreddit_data
 
 
 def main():
-    users_for_subs = load_pickle()
-    counts = get_interlinked_subreddits("science", users_for_subs)
-    print(get_subreddit_rank("science", users_for_subs))
+    subreddit_data = load_pickle()
+    print(get_subreddit_metrics("AnNouncements", subreddit_data))
 
 
 
