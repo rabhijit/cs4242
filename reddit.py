@@ -70,8 +70,27 @@ def get_interlinked_subreddits(subreddit_name, subreddit_data):
 
     subreddit_counts = dict(sorted(subreddit_counts.items(), key=lambda x: x[1], reverse=True))
     df = pd.DataFrame(subreddit_counts.items())
-    df.columns = ['subreddit', 'overlap']
+    df.columns = ['subreddit', 'user overlap']
     return df.head(10)
+
+def get_all_subreddit_overlaps(subreddit_data):
+    subreddit_users = subreddit_data[USERS]
+    subreddit_info = subreddit_data[INFO]
+    subreddit_names = subreddit_data[NAMES]
+    overlaps = {}
+
+    for subreddit in subreddit_users:
+        users = subreddit_users[subreddit]
+        for subreddit2 in subreddit_users:
+            users2 = subreddit_users[subreddit2]
+            if subreddit != subreddit2:
+                overlaps[(subreddit, subreddit2)] = len(users.intersection(users2))
+
+    df = pd.Series(overlaps).reset_index()
+    df.columns = ['s1', 's2', 'overlap']
+    with open("all_overlaps.pkl", 'wb') as f:
+        pickle.dump(df, f)
+    return df
 
 
 def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
@@ -125,7 +144,9 @@ def load_pickle():
 
 
 def main():
-    pass
+    subreddit_data = load_pickle()
+    print(get_all_subreddit_overlaps(subreddit_data))
+    #pass
 
 
 if __name__ == "__main__":
