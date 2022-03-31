@@ -5,6 +5,7 @@ import streamlit as st
 from streamlit_lottie import st_lottie
 
 import reddit
+import ml
 
 USERS = 0
 INFO = 1
@@ -40,19 +41,32 @@ def view():
             try:
                 with st.spinner("Loading statistics..."):
                     if st.session_state.subreddit_data is None:
-                        st.session_state.subreddit_data = reddit.load_pickle()
+                        st.session_state.subreddit_data = reddit.load_subreddit_pickle()
+                    if st.session_state.overlap_data is None:
+                        st.session_state.overlap_data = reddit.load_overlap_pickle()
+                    if st.session_state.vector_data is None:
+                        st.session_state.vector_data = reddit.load_vector_pickle()
+
                     subreddit_name = reddit.get_real_subreddit_name(st.session_state.search_input, st.session_state.subreddit_data)
                     subreddit_description = reddit.get_subreddit_description(subreddit_name, st.session_state.subreddit_data)
                     subreddit_metrics = reddit.get_subreddit_metrics(subreddit_name, st.session_state.subreddit_data).style.hide_index()
-                    interlinked_subreddits = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.subreddit_data)
+                    interlinked_subreddits_by_user = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.subreddit_data)
+                    interlinked_subreddits_by_algebra = ml.get_nearest_subreddit_vectors(subreddit_name, st.session_state.subreddit_data, st.session_state.vector_data)
+
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Description</h6>", unsafe_allow_html=True)
                 st.markdown("<h6 style='font-style:italic; font-weight:normal;'>" + subreddit_description + "</h6>", unsafe_allow_html=True)
+
                 st.write("#")
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Metrics</h6>", unsafe_allow_html=True)
                 st.dataframe(subreddit_metrics)
+
                 st.write("#")
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user overlap</h6>", unsafe_allow_html=True)
-                st.table(interlinked_subreddits)
+                st.table(interlinked_subreddits_by_user)
+                
+                st.write("#")
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by angular similarity</h6>", unsafe_allow_html=True)
+                st.table(interlinked_subreddits_by_algebra)
             except KeyError:
                 st.warning("Sorry! The subreddit you have requested is not within the top 3000 subreddits. Please try another subreddit.")
 

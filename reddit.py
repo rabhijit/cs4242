@@ -1,10 +1,8 @@
 import logging
 import os
 import pickle
-import datetime as dt
 import math
 import datetime
-
 import praw
 import pandas as pd
 
@@ -12,7 +10,6 @@ from config import *
 
 logger = logging.getLogger()
 logging.basicConfig(level=LOGGING_LEVEL, format="%(levelname)s: |%(name)s| %(message)s")
-
 reddit = praw.Reddit("bot")
 
 USERS = 0
@@ -26,6 +23,7 @@ def get_real_subreddit_name(subreddit_name, subreddit_data):
         return subreddit_names[subreddit_name.lower()]
     except KeyError:
         return subreddit_name
+        
 
 def get_subreddit_description(subreddit_name, subreddit_data):
     subreddit_info = subreddit_data[INFO]
@@ -73,7 +71,7 @@ def get_interlinked_subreddits(subreddit_name, subreddit_data):
     df.columns = ['subreddit', 'user overlap']
     return df.head(10)
 
-def get_all_subreddit_overlaps(subreddit_data):
+def load_subreddit_overlaps(subreddit_data):
     subreddit_users = subreddit_data[USERS]
     subreddit_info = subreddit_data[INFO]
     subreddit_names = subreddit_data[NAMES]
@@ -88,7 +86,8 @@ def get_all_subreddit_overlaps(subreddit_data):
 
     df = pd.Series(overlaps).reset_index()
     df.columns = ['s1', 's2', 'overlap']
-    with open("all_overlaps.pkl", 'wb') as f:
+
+    with open(OVERLAPS_PKL, 'wb') as f:
         pickle.dump(df, f)
     return df
 
@@ -120,33 +119,28 @@ def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
     return [subreddit_users, subreddit_info, subreddit_names]
 
 
-def load_pickle():
-    if os.path.isfile(SAVE_FILE_NAME):
-        if OVERWRITE_EXISTING_FILE:
-            logger.warning("Overwriting existing file...")
-            subreddit_data = load_subreddit_data()
-
-            with open(SAVE_FILE_NAME, 'wb') as f:
-                pickle.dump(subreddit_data, f)
-            logger.info(f"Saved data to {SAVE_FILE_NAME}.")
-
-        else:
-            logger.info("A pickle file with the name already exists. Loading existing file.")
-            with open(SAVE_FILE_NAME, 'rb') as f:
-                subreddit_data = pickle.load(f)
+def load_pickle(pkl):
+    if os.path.isfile(pkl):
+        logger.info(f"A pickle file with the name {pkl} already exists. Loading existing file.")
+        with open(pkl, 'rb') as f:
+            data = pickle.load(f)
+        return data
     else:
-        subreddit_data = load_subreddit_data()
-        with open(SAVE_FILE_NAME, 'wb') as f:
-            pickle.dump(subreddit_data, f)
-        logger.info(f"Saved data to {SAVE_FILE_NAME}.")
+        logger.warning(f"ERROR: file {pkl} does not exist.")
+        return None
 
-    return subreddit_data
+def load_subreddit_pickle():
+    return load_pickle(SUBREDDITS_PKL)
+
+def load_overlap_pickle():
+    return load_pickle(OVERLAPS_PKL)
+
+def load_vector_pickle():
+    return load_pickle(VECTORS_PKL)
 
 
 def main():
-    subreddit_data = load_pickle()
-    print(get_all_subreddit_overlaps(subreddit_data))
-    #pass
+    pass
 
 
 if __name__ == "__main__":

@@ -7,9 +7,14 @@ import streamlit as st
 import hydralit_components as hc
 from streamlit_lottie import st_lottie
 
+import reddit
+import ml
+
 st.set_page_config(page_title="trenddit", page_icon=":tada:", layout="wide")
 st.session_state.search_input = ""
 st.session_state.subreddit_data = None
+st.session_state.overlap_data = None
+st.session_state.vector_data = None
 
 pages = {
     "main": main,
@@ -43,9 +48,17 @@ with st.container():
 
 with st.container():
     buff, search_col, buff2 = st.columns((1, 3, 1))
+
     with search_col:
         st.write("##")
         st.session_state.search_input = st.text_input(label="r/", value="", key=1)
+        
+    buff, button_col, buff2 = st.columns((3, 3, 3))
+    with button_col:
+        st.write("#")
+        if st.button("Or, click here to check out a cool visualization of subreddit relationships!"):
+            with st.spinner("Creating subreddit map... just a moment!"):
+                ml.plot_subreddit_clusters(reddit.load_overlap_pickle(), reddit.load_vector_pickle())
 
 # -- Search results --
 if st.session_state.search_input != "":
