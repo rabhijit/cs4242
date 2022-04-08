@@ -25,10 +25,9 @@ logging.basicConfig(level=LOGGING_LEVEL, format="%(levelname)s: |%(name)s| %(mes
 
 """
 Features to implement:
-- (DONE) Ensure that the user-overlap-vector implemented by Ahbijit using https://lmcinnes.github.io/subreddit_mapping/ can work
-- Wordcloud visualization for a given subreddit (in search.py)
 - Calculating similarity scores based on word association?
     - Requires tokenization, removal of stopwords etc
+    - Search for a subreddit, display all the similar subs by word association
 
 """
 
@@ -46,7 +45,11 @@ def load_subreddit_vectors(overlap_data):
 
     conditional_prob_matrix = count_matrix.tocsr()
     conditional_prob_matrix = normalize(conditional_prob_matrix, norm='l1', copy=False)
-    reduced_vectors = TruncatedSVD(n_components=500, random_state=0).fit_transform(conditional_prob_matrix)
+
+    logger.warning("\n\n\nToy dataset in load_subreddit_vectors()\n\n\n")
+    reduced_vectors = TruncatedSVD(n_components=3, random_state=0).fit_transform(conditional_prob_matrix)
+    # reduced_vectors = TruncatedSVD(n_components=500, random_state=0).fit_transform(conditional_prob_matrix)
+
     reduced_vectors = normalize(reduced_vectors, norm='l2', copy=False)
 
     save_to_pickle(reduced_vectors, VECTORS_PKL)
@@ -88,30 +91,38 @@ def plot_subreddit_clusters(overlap_data, vector_data):
     subreddit_map_df = pd.DataFrame(subreddit_map, columns=('x', 'y'))
     subreddit_map_df['subreddit'] = subreddits
 
-    kmeans = KMeans(n_clusters=25, random_state=0)
-    # kmeans = KMeans(n_clusters=5, random_state=0)
+    logger.warning("\n\n\nToy dataset in plot_subreddit_clusters()\n\n\n")
+    kmeans = KMeans(n_clusters=2, random_state=0)
+    # kmeans = KMeans(n_clusters=25, random_state=0)
+
     subreddit_map_df['cluster'] = kmeans.fit_predict(subreddit_map_df[['x', 'y']])
 
     fig = px.scatter(subreddit_map_df, x='x', y='y', color='cluster', hover_data=['subreddit'], opacity=0.8)
     fig.show()
 
 
-def generate_wordcloud(subreddit_comments):
-    """Expect subreddit_comments to be a list"""
+def generate_wordcloud(subreddit_name):
 
+    subreddits = reddit.load_subreddit_pickle()
+    if subreddit_name not in subreddits[COMMENTS].keys():
+        logger.error("Subreddit searched for was not found in comments!")
+        return
+    
     # Transform into a string
-    comments_as_string = " ".join(subreddit_comments)
+    comments_as_string = " ".join(subreddits[COMMENTS][subreddit_name])
 
     wordcloud = WordCloud(max_font_size=50, max_words=200, background_color="white").generate(comments_as_string)
-    plt.figure()
-    plt.imshow(wordcloud, interpolation="bilinear")
-    plt.axis("off")
-    plt.show()
 
+    fig, ax = plt.subplots()
+    ax.imshow(wordcloud, interpolation="bilinear")
+    ax.axis("off")
+
+    return fig
+    
 
 def scrape_reddit_data():
-    # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=5, submissions_per_subreddit=5)
-    subreddit_data = reddit.load_subreddit_data(number_of_subreddits=5000, submissions_per_subreddit=20)
+    subreddit_data = reddit.load_subreddit_data(number_of_subreddits=10, submissions_per_subreddit=20)
+    # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=20)
 
     # subreddit_data = reddit.load_subreddit_pickle()
     subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
@@ -119,11 +130,11 @@ def scrape_reddit_data():
 
 
 def main():
-    # reddit.load_subreddit_data(number_of_subreddits=1, submissions_per_subreddit=5)
-    scrape_reddit_data()
-    # subreddits = reddit.load_subreddit_pickle()
-    # for subreddit_name in subreddits[COMMENTS]:
-    #     generate_wordcloud(subreddits[COMMENTS][subreddit_name])
+    # scrape_reddit_data()
+    subreddit_data = reddit.load_subreddit_pickle()
+    reddit.get_interlinked_subreddits('place', subreddit_data)
+    for subreddit_name in subreddit_data[COMMENTS]:
+        generate_wordcloud(subreddit_name)
 
 
 if __name__ == "__main__":

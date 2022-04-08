@@ -52,6 +52,9 @@ def view():
                     subreddit_metrics = reddit.get_subreddit_metrics(subreddit_name, st.session_state.subreddit_data).style.hide_index()
                     interlinked_subreddits_by_user = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.subreddit_data)
                     interlinked_subreddits_by_algebra = ml.get_nearest_subreddit_vectors(subreddit_name, st.session_state.subreddit_data, st.session_state.vector_data)
+                    subreddit_comments_wordcloud = ml.generate_wordcloud(subreddit_name)
+
+                st.pyplot(subreddit_comments_wordcloud)
 
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Description</h6>", unsafe_allow_html=True)
                 st.markdown("<h6 style='font-style:italic; font-weight:normal;'>" + subreddit_description + "</h6>", unsafe_allow_html=True)
@@ -68,6 +71,6 @@ def view():
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by angular similarity</h6>", unsafe_allow_html=True)
                 st.table(interlinked_subreddits_by_algebra)
             except KeyError:
-                st.warning("Sorry! The subreddit you have requested is not within the top 5000 subreddits. Please try another subreddit.")
+                st.warning("Sorry! The subreddit you have requested is not within the top 3000 subreddits. Please try another subreddit.")
 
 

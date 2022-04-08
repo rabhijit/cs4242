@@ -67,7 +67,10 @@ def get_interlinked_subreddits(subreddit_name, subreddit_data):
     subreddit_counts = dict(sorted(subreddit_counts.items(), key=lambda x: x[1], reverse=True))
     df = pd.DataFrame(subreddit_counts.items())
     df.columns = ['subreddit', 'user overlap']
-    return df.head(10)
+
+    logger.warning("\n\n\nToy dataset in get_interlinked_subreddits()\n\n\n")
+    return df.head(3)
+    # return df.head(10)
 
 def load_subreddit_overlaps(subreddit_data):
     subreddit_users = subreddit_data[USERS]
@@ -110,14 +113,16 @@ def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10)
     popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits)]
     logger.debug(f"Subreddits found: {[sub.display_name for sub in popular_subs]}")
 
-    count = 0
+    sub_count = 0
     len_subs = len(popular_subs)
     for subreddit in popular_subs:
-        count += 1
-        logger.info(str(count) + "/" + str(len_subs))
+        sub_count += 1
+        logger.info(str(sub_count) + "/" + str(len_subs))
 
-        subreddit_info[subreddit.display_name] = subreddit
-        subreddit_names[subreddit.display_name.lower()] = subreddit.display_name
+        sub_name = subreddit.display_name
+
+        subreddit_info[sub_name] = subreddit
+        subreddit_names[sub_name.lower()] = subreddit.display_name
 
         users = set()
         comments = list()
@@ -125,10 +130,14 @@ def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10)
         for submission in subreddit.top('all', limit=submissions_per_subreddit):
             submission.comments.replace_more(limit=0)
             for comment in submission.comments.list():
+                users.add(comment.author)
                 comments.append(clean_text(comment.body))
 
-        subreddit_users[subreddit.display_name] = users
-        subreddit_comments[subreddit.display_name] = comments
+        subreddit_users[sub_name] = users
+        subreddit_comments[sub_name] = comments
+
+        save_to_pickle(users, SUBREDDIT_USERS_PKL.format(sub_count, sub_name))
+        save_to_pickle(comments, SUBREDDIT_COMMENTS_PKL.format(sub_count, sub_name))
 
     subreddits = {
         USERS: subreddit_users,
