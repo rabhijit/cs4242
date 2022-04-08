@@ -3,6 +3,7 @@ import os
 import pickle
 import math
 import datetime
+import re
 import praw
 import pandas as pd
 
@@ -12,9 +13,6 @@ logger = logging.getLogger()
 logging.basicConfig(level=LOGGING_LEVEL, format="%(levelname)s: |%(name)s| %(message)s")
 reddit = praw.Reddit("bot")
 
-USERS = 0
-INFO = 1
-NAMES = 2
 
 def get_real_subreddit_name(subreddit_name, subreddit_data):
     subreddit_names = subreddit_data[NAMES]
@@ -87,16 +85,27 @@ def load_subreddit_overlaps(subreddit_data):
     df = pd.Series(overlaps).reset_index()
     df.columns = ['s1', 's2', 'overlap']
 
-    with open(OVERLAPS_PKL, 'wb') as f:
-        pickle.dump(df, f)
+    save_to_pickle(df, OVERLAPS_PKL)
+
     return df
 
 
-def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
+def clean_text(input_text):
+    """Keeps only alphabetical values in the text. Expects a single string."""
+    return re.sub('[^A-Za-z ]', '', input_text)
+
+
+def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10):
+    if submissions_per_subreddit > 20:
+        logger.warning("submissions_per_subreddit grows very rapidly. Consider setting a lower value.")
+        logger.error("Quitting since number of submissions is probably infeasible.")
+        return
+    
     logger.info("Loading subreddit data from Reddit...")
     subreddit_users = {}
     subreddit_info = {}
     subreddit_names = {}
+    subreddit_comments = {}
 
     popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits)]
     logger.debug(f"Subreddits found: {[sub.display_name for sub in popular_subs]}")
@@ -111,12 +120,26 @@ def load_subreddit_data(number_of_subreddits=3000, comments_per_subreddit=500):
         subreddit_names[subreddit.display_name.lower()] = subreddit.display_name
 
         users = set()
-        for comment in subreddit.comments(limit=comments_per_subreddit):
-            if comment.author is not None:
-                users.add(comment.author)
+        comments = list()
+        
+        for submission in subreddit.top('all', limit=submissions_per_subreddit):
+            submission.comments.replace_more(limit=0)
+            for comment in submission.comments.list():
+                comments.append(clean_text(comment.body))
+
         subreddit_users[subreddit.display_name] = users
+        subreddit_comments[subreddit.display_name] = comments
+
+    subreddits = {
+        USERS: subreddit_users,
+        INFO: subreddit_info,
+        NAMES: subreddit_names,
+        COMMENTS: subreddit_comments
+    }
+
+    save_to_pickle(subreddits, SUBREDDITS_PKL)
     
-    return [subreddit_users, subreddit_info, subreddit_names]
+    return subreddits
 
 
 def load_pickle(pkl):
@@ -140,7 +163,7 @@ def load_vector_pickle():
 
 
 def main():
-    pass
+    load_subreddit_data()
 
 
 if __name__ == "__main__":

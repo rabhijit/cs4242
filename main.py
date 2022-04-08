@@ -44,7 +44,7 @@ with st.container():
     st.markdown("<h6 style='text-align: center; margin: 0; padding: 0; font-size:60px; padding-bottom:10px'>trenddit</h6>", unsafe_allow_html=True)
     st.markdown("<h6 style='text-align: center; font-weight:normal; padding-bottom:0'>type in a subreddit below to browse its statistics!</h6>", unsafe_allow_html=True)
     st.markdown("<h6 style='text-align: center; font-weight:normal'>results will be generated below.</h6>", unsafe_allow_html=True)
-    st.markdown("<h6 style='text-align: center; font-weight:bold; font-style:italic'>note: statistics are only available for the top 3000 SFW subreddits on Reddit.</h6>", unsafe_allow_html=True)
+    st.markdown("<h6 style='text-align: center; font-weight:bold; font-style:italic'>note: statistics are only available for the top 5000 SFW subreddits on Reddit.</h6>", unsafe_allow_html=True)
 
 with st.container():
     buff, search_col, buff2 = st.columns((1, 3, 1))

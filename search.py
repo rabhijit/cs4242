@@ -68,6 +68,6 @@ def view():
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by angular similarity</h6>", unsafe_allow_html=True)
                 st.table(interlinked_subreddits_by_algebra)
             except KeyError:
-                st.warning("Sorry! The subreddit you have requested is not within the top 3000 subreddits. Please try another subreddit.")
+                st.warning("Sorry! The subreddit you have requested is not within the top 5000 subreddits. Please try another subreddit.")
 
 
