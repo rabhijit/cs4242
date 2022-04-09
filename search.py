@@ -1,6 +1,7 @@
 from json import load
 from PIL import Image
 import requests
+from config import NUMBER_OF_SUBREDDITS, NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT
 import streamlit as st
 from streamlit_lottie import st_lottie
 
@@ -40,21 +41,14 @@ def view():
             st.write("##")
             try:
                 with st.spinner("Loading statistics..."):
-                    if st.session_state.subreddit_data is None:
-                        st.session_state.subreddit_data = reddit.load_subreddit_pickle()
-                    if st.session_state.overlap_data is None:
-                        st.session_state.overlap_data = reddit.load_overlap_pickle()
-                    if st.session_state.vector_data is None:
-                        st.session_state.vector_data = reddit.load_vector_pickle()
-
                     subreddit_name = reddit.get_real_subreddit_name(st.session_state.search_input, st.session_state.subreddit_data)
                     subreddit_description = reddit.get_subreddit_description(subreddit_name, st.session_state.subreddit_data)
                     subreddit_metrics = reddit.get_subreddit_metrics(subreddit_name, st.session_state.subreddit_data).style.hide_index()
-                    interlinked_subreddits_by_user = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.subreddit_data)
-                    interlinked_subreddits_by_algebra = ml.get_nearest_subreddit_vectors(subreddit_name, st.session_state.subreddit_data, st.session_state.vector_data)
+                    interlinked_subreddits_by_user = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.overlap_data)
+                    interlinked_subreddits_by_algebra = ml.get_nearest_subreddit_vectors_by_user(subreddit_name, st.session_state.subreddit_data, st.session_state.vector_data)
                     subreddit_comments_wordcloud = ml.generate_wordcloud(subreddit_name)
+                    similar_subreddits_by_comment_tfidf = ml.get_nearest_subreddit_vectors_by_comment_tfidf(subreddit_name, st.session_state.comment_tfidf_vector_data)
 
-                st.pyplot(subreddit_comments_wordcloud)
 
                 st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Description</h6>", unsafe_allow_html=True)
                 st.markdown("<h6 style='font-style:italic; font-weight:normal;'>" + subreddit_description + "</h6>", unsafe_allow_html=True)
@@ -64,13 +58,25 @@ def view():
                 st.dataframe(subreddit_metrics)
 
                 st.write("#")
-                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user overlap</h6>", unsafe_allow_html=True)
+                st.markdown(f"<h6 style='font-size:26px; font-weight:bold;'>The following metrics are based on a sample of the top {NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT} posts on each subreddit!</h6>", unsafe_allow_html=True)
+
+                st.write("#")
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by comment TF-IDF angular similarity</h6>", unsafe_allow_html=True)
+                st.table(similar_subreddits_by_comment_tfidf)
+
+                st.write("#")
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Wordcloud of the most common words used in this subreddit</h6>", unsafe_allow_html=True)
+                st.pyplot(subreddit_comments_wordcloud)
+
+                st.write("#")
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user overlap percentage</h6>", unsafe_allow_html=True)
                 st.table(interlinked_subreddits_by_user)
                 
                 st.write("#")
-                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by angular similarity</h6>", unsafe_allow_html=True)
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user angular similarity</h6>", unsafe_allow_html=True)
                 st.table(interlinked_subreddits_by_algebra)
+
             except KeyError:
-                st.warning("Sorry! The subreddit you have requested is not within the top 3000 subreddits. Please try another subreddit.")
+                st.warning(f"Sorry! The subreddit you have requested is not within the top {NUMBER_OF_SUBREDDITS} subreddits. Please try another subreddit.")
 
 

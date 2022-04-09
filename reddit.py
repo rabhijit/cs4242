@@ -47,36 +47,26 @@ def get_subreddit_metrics(subreddit_name, subreddit_data):
     return pd.DataFrame([metrics])
 
 
-def get_interlinked_subreddits(subreddit_name, subreddit_data):
+def get_interlinked_subreddits(subreddit_name, subreddit_overlaps):
     logger.info("Finding related subreddits...")
-    subreddit_counts = {}
-    subreddit_users = subreddit_data[USERS]
-    subreddit_info = subreddit_data[INFO]
-    subreddit_names = subreddit_data[NAMES]
-    subreddit_name = subreddit_names[subreddit_name.lower()] # to make lowercase names e.g. 'askreddit' work
-    users = set(subreddit_users[subreddit_name])
 
-    for subreddit in subreddit_users:
-        if subreddit != subreddit_name:
-            sub_users = subreddit_users[subreddit]
-            sub_info = subreddit_info[subreddit]
-            common_users = users.intersection(sub_users)
-            if len(common_users) != 0:
-                subreddit_counts[subreddit] = len(common_users)
+    subreddit_overlaps_for_this_sub = subreddit_overlaps[subreddit_overlaps['s1'] == subreddit_name.lower()]
+    subreddit_overlaps_for_this_sub = subreddit_overlaps_for_this_sub.drop(['s1', 'overlap'], axis='columns')
+    sorted_percentages = subreddit_overlaps_for_this_sub.sort_values(by='overlap_percentage', ascending=False)
+    sorted_percentages.columns = ['subreddit', 'user overlap proportion']
 
-    subreddit_counts = dict(sorted(subreddit_counts.items(), key=lambda x: x[1], reverse=True))
-    df = pd.DataFrame(subreddit_counts.items())
-    df.columns = ['subreddit', 'user overlap']
+    top_results = sorted_percentages.head(10)
+    # top_results = top_results.reset_index(drop=True)
+    top_results.set_index(keys='subreddit', inplace=True)
 
-    logger.warning("\n\n\nToy dataset in get_interlinked_subreddits()\n\n\n")
-    return df.head(3)
-    # return df.head(10)
+    return top_results
 
 def load_subreddit_overlaps(subreddit_data):
     subreddit_users = subreddit_data[USERS]
     subreddit_info = subreddit_data[INFO]
     subreddit_names = subreddit_data[NAMES]
     overlaps = {}
+    overlap_percentage = {}
 
     for subreddit in subreddit_users:
         users = subreddit_users[subreddit]
@@ -84,9 +74,16 @@ def load_subreddit_overlaps(subreddit_data):
             users2 = subreddit_users[subreddit2]
             if subreddit != subreddit2:
                 overlaps[(subreddit, subreddit2)] = len(users.intersection(users2))
+                overlap_percentage[(subreddit, subreddit2)] = len(users.intersection(users2))/len(users)
 
     df = pd.Series(overlaps).reset_index()
     df.columns = ['s1', 's2', 'overlap']
+
+    df_percentage = pd.Series(overlap_percentage).reset_index()
+    df_percentage.columns = ['s1', 's2', 'overlap_percentage']
+    df_percentage = df_percentage.drop(['s1', 's2'], axis='columns')
+
+    df = pd.concat([df, df_percentage], axis='columns')
 
     save_to_pickle(df, OVERLAPS_PKL)
 
@@ -169,6 +166,9 @@ def load_overlap_pickle():
 
 def load_vector_pickle():
     return load_pickle(VECTORS_PKL)
+
+def load_comments_tfidf_pickle():
+    return load_pickle(COMMENT_TFIDF_VECTORS_PKL)
 
 
 def main():

@@ -6,13 +6,16 @@ import pickle
 OVERWRITE_EXISTING_FILE = False
 # OVERWRITE_EXISTING_FILE = True
 
-# DATA_ROOT = os.path.join(os.getcwd(), "data", "3000subs_20submissions")
-DATA_ROOT = os.path.join(os.getcwd(), "data", "10subs_20submissions")
+NUMBER_OF_SUBREDDITS = 100
+NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT = 5
+SUBS_AND_SUBMISSION_COUNT = f"{NUMBER_OF_SUBREDDITS}subs_{NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT}submissions"
+DATA_ROOT = os.path.join(os.getcwd(), "data", SUBS_AND_SUBMISSION_COUNT)
 SUBREDDITS_PKL = os.path.join(DATA_ROOT, "subreddits.pkl")
 SUBREDDIT_USERS_PKL = os.path.join(DATA_ROOT, "checkpoints", "subnumber_{}_subname_{}_users.pkl")
 SUBREDDIT_COMMENTS_PKL = os.path.join(DATA_ROOT, "checkpoints", "subnumber_{}_subname_{}_comments.pkl")
 OVERLAPS_PKL = os.path.join(DATA_ROOT, "overlaps.pkl")
 VECTORS_PKL = os.path.join(DATA_ROOT, "vectors.pkl")
+COMMENT_TFIDF_VECTORS_PKL = os.path.join(DATA_ROOT, "comment_tfidf_vectors.pkl")
 
 def save_to_pickle(object_to_pickle, file_path):
     if os.path.isfile(file_path) and not OVERWRITE_EXISTING_FILE:

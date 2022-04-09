@@ -1,6 +1,7 @@
 from json import load
 from json.tool import main
 from PIL import Image
+from config import NUMBER_OF_SUBREDDITS
 import search
 import requests
 import streamlit as st
@@ -12,9 +13,10 @@ import ml
 
 st.set_page_config(page_title="trenddit", page_icon=":tada:", layout="wide")
 st.session_state.search_input = ""
-st.session_state.subreddit_data = None
-st.session_state.overlap_data = None
-st.session_state.vector_data = None
+st.session_state.subreddit_data = reddit.load_subreddit_pickle()
+st.session_state.overlap_data = reddit.load_overlap_pickle()
+st.session_state.vector_data = reddit.load_vector_pickle()
+st.session_state.comment_tfidf_vector_data = reddit.load_comments_tfidf_pickle()
 
 pages = {
     "main": main,
@@ -44,7 +46,7 @@ with st.container():
     st.markdown("<h6 style='text-align: center; margin: 0; padding: 0; font-size:60px; padding-bottom:10px'>trenddit</h6>", unsafe_allow_html=True)
     st.markdown("<h6 style='text-align: center; font-weight:normal; padding-bottom:0'>type in a subreddit below to browse its statistics!</h6>", unsafe_allow_html=True)
     st.markdown("<h6 style='text-align: center; font-weight:normal'>results will be generated below.</h6>", unsafe_allow_html=True)
-    st.markdown("<h6 style='text-align: center; font-weight:bold; font-style:italic'>note: statistics are only available for the top 3000 SFW subreddits on Reddit.</h6>", unsafe_allow_html=True)
+    st.markdown(f"<h6 style='text-align: center; font-weight:bold; font-style:italic'>note: statistics are only available for the top {NUMBER_OF_SUBREDDITS} SFW subreddits on Reddit.</h6>", unsafe_allow_html=True)
 
 with st.container():
     buff, search_col, buff2 = st.columns((1, 3, 1))

@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 import scipy.sparse as ss
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
@@ -12,7 +13,7 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 import hdbscan
 import plotly.express as px
-from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+from wordcloud import WordCloud, STOPWORDS
 import matplotlib.pyplot as plt
 
 import reddit
@@ -46,9 +47,7 @@ def load_subreddit_vectors(overlap_data):
     conditional_prob_matrix = count_matrix.tocsr()
     conditional_prob_matrix = normalize(conditional_prob_matrix, norm='l1', copy=False)
 
-    logger.warning("\n\n\nToy dataset in load_subreddit_vectors()\n\n\n")
-    reduced_vectors = TruncatedSVD(n_components=3, random_state=0).fit_transform(conditional_prob_matrix)
-    # reduced_vectors = TruncatedSVD(n_components=500, random_state=0).fit_transform(conditional_prob_matrix)
+    reduced_vectors = TruncatedSVD(n_components=50, random_state=0).fit_transform(conditional_prob_matrix)
 
     reduced_vectors = normalize(reduced_vectors, norm='l2', copy=False)
 
@@ -57,7 +56,33 @@ def load_subreddit_vectors(overlap_data):
     return reduced_vectors
 
 
-def get_nearest_subreddit_vectors(subreddit_name, subreddit_data, vector_data):
+def load_subreddit_comment_tfidf_vectors(subreddit_data):
+    combined_comments = {}
+    for subreddit_name in subreddit_data[COMMENTS]:
+        all_comments = []
+        for comment in subreddit_data[COMMENTS][subreddit_name]:
+            comment = comment.lower()
+            comment_words = comment.split(" ")
+            comment_words = [word for word in comment_words if word not in STOPWORDS]
+            all_comments.append(" ".join(comment_words))
+        combined_comments[subreddit_name] = " ".join(all_comments)
+
+    df_comments = pd.DataFrame.from_dict(combined_comments, orient='index')
+    df_comments = df_comments.reset_index()
+    df_comments = df_comments.rename(columns = {'index': 'subreddit_name', 0: "combined_comments"})
+
+    vectorizer = TfidfVectorizer(max_features=256)
+    tfidf_vectors = vectorizer.fit_transform(df_comments['combined_comments'])
+
+    subreddit_names = df_comments['subreddit_name'].tolist()
+    tfidf_vectors = tfidf_vectors.toarray()
+
+    comment_tfidf_vectors = dict(zip(subreddit_names, tfidf_vectors))
+
+    save_to_pickle(comment_tfidf_vectors, COMMENT_TFIDF_VECTORS_PKL)
+
+
+def get_nearest_subreddit_vectors_by_user(subreddit_name, subreddit_data, vector_data):
     subreddit_names = pd.DataFrame(subreddit_data[NAMES].items())
     subreddit_index = subreddit_names.index[subreddit_names[0] == subreddit_name.lower()].tolist()[0]
     this_subreddit_vector = vector_data[subreddit_index]
@@ -80,8 +105,26 @@ def get_nearest_subreddit_vectors(subreddit_name, subreddit_data, vector_data):
     top_ten_subreddits = dict(zip(top_ten_subreddits, top_ten_values))
     df = pd.DataFrame(top_ten_subreddits.items())
     df.columns = ['subreddit', 'angular similarity']
+    df.set_index(keys='subreddit', inplace=True)
 
     return df
+
+
+def get_nearest_subreddit_vectors_by_comment_tfidf(subreddit_name, comment_tfidfs):
+    tfidf_similarities = {}
+
+    for other_subreddit_name, tfidf_vector in comment_tfidfs.items():
+        if other_subreddit_name == subreddit_name:
+            continue
+
+        tfidf_similarities[other_subreddit_name] = cosine_similarity(comment_tfidfs[subreddit_name].reshape(1, -1), tfidf_vector.reshape(1, -1))[0]
+    
+    similarity_scores = pd.DataFrame.from_dict(tfidf_similarities, orient='index')
+    similarity_scores = similarity_scores.rename(columns = {0: "tfidf_similarity"})
+    similarity_scores = similarity_scores.sort_values(by="tfidf_similarity", ascending=False)
+    
+    return similarity_scores.head(10)
+        
 
 def plot_subreddit_clusters(overlap_data, vector_data):
     subreddit_popularity = overlap_data.groupby('s2')['overlap'].sum()
@@ -91,9 +134,7 @@ def plot_subreddit_clusters(overlap_data, vector_data):
     subreddit_map_df = pd.DataFrame(subreddit_map, columns=('x', 'y'))
     subreddit_map_df['subreddit'] = subreddits
 
-    logger.warning("\n\n\nToy dataset in plot_subreddit_clusters()\n\n\n")
-    kmeans = KMeans(n_clusters=2, random_state=0)
-    # kmeans = KMeans(n_clusters=25, random_state=0)
+    kmeans = KMeans(n_clusters=25, random_state=0)
 
     subreddit_map_df['cluster'] = kmeans.fit_predict(subreddit_map_df[['x', 'y']])
 
@@ -111,7 +152,7 @@ def generate_wordcloud(subreddit_name):
     # Transform into a string
     comments_as_string = " ".join(subreddits[COMMENTS][subreddit_name])
 
-    wordcloud = WordCloud(max_font_size=50, max_words=200, background_color="white").generate(comments_as_string)
+    wordcloud = WordCloud(max_font_size=200, max_words=500, width=2000, height=1000, background_color="white").generate(comments_as_string)
 
     fig, ax = plt.subplots()
     ax.imshow(wordcloud, interpolation="bilinear")
@@ -121,20 +162,22 @@ def generate_wordcloud(subreddit_name):
     
 
 def scrape_reddit_data():
-    subreddit_data = reddit.load_subreddit_data(number_of_subreddits=10, submissions_per_subreddit=20)
-    # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=20)
+    # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=NUMBER_OF_SUBREDDITS, submissions_per_subreddit=NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT)
 
-    # subreddit_data = reddit.load_subreddit_pickle()
-    subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
-    load_subreddit_vectors(subreddit_overlaps)
+    subreddit_data = reddit.load_subreddit_pickle()
+    # subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
+    # load_subreddit_vectors(subreddit_overlaps)
+    load_subreddit_comment_tfidf_vectors(subreddit_data)
 
 
 def main():
     # scrape_reddit_data()
-    subreddit_data = reddit.load_subreddit_pickle()
-    reddit.get_interlinked_subreddits('place', subreddit_data)
-    for subreddit_name in subreddit_data[COMMENTS]:
-        generate_wordcloud(subreddit_name)
+    # subreddit_data = reddit.load_subreddit_pickle()
+    comment_tfidfs = reddit.load_comments_tfidf_pickle()
+    get_nearest_subreddit_vectors_by_comment_tfidf('interestingasfuck', comment_tfidfs)
+    # reddit.get_interlinked_subreddits('place', subreddit_data)
+    # for subreddit_name in subreddit_data[COMMENTS]:
+    #     generate_wordcloud(subreddit_name)
 
 
 if __name__ == "__main__":
