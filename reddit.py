@@ -49,8 +49,7 @@ def get_subreddit_metrics(subreddit_name, subreddit_data):
 
 def get_interlinked_subreddits(subreddit_name, subreddit_overlaps):
     logger.info("Finding related subreddits...")
-
-    subreddit_overlaps_for_this_sub = subreddit_overlaps[subreddit_overlaps['s1'] == subreddit_name.lower()]
+    subreddit_overlaps_for_this_sub = subreddit_overlaps[subreddit_overlaps['s1'] == subreddit_name]
     subreddit_overlaps_for_this_sub = subreddit_overlaps_for_this_sub.drop(['s1', 'overlap'], axis='columns')
     sorted_percentages = subreddit_overlaps_for_this_sub.sort_values(by='overlap_percentage', ascending=False)
     sorted_percentages.columns = ['subreddit', 'user overlap proportion']
@@ -58,7 +57,6 @@ def get_interlinked_subreddits(subreddit_name, subreddit_overlaps):
     top_results = sorted_percentages.head(10)
     # top_results = top_results.reset_index(drop=True)
     top_results.set_index(keys='subreddit', inplace=True)
-
     return top_results
 
 def load_subreddit_overlaps(subreddit_data):
