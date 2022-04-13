@@ -1,7 +1,6 @@
 import logging
 import os
 import pickle
-import math
 import datetime
 import re
 import praw
@@ -55,7 +54,6 @@ def get_interlinked_subreddits(subreddit_name, subreddit_overlaps):
     sorted_percentages.columns = ['subreddit', 'user overlap proportion']
 
     top_results = sorted_percentages.head(10)
-    # top_results = top_results.reset_index(drop=True)
     top_results.set_index(keys='subreddit', inplace=True)
     return top_results
 
@@ -231,11 +229,3 @@ def load_vector_pickle():
 
 def load_comments_tfidf_pickle():
     return load_pickle(COMMENT_TFIDF_VECTORS_PKL)
-
-
-def main():
-    load_subreddit_data()
-
-
-if __name__ == "__main__":
-    main()

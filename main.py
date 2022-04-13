@@ -13,10 +13,15 @@ import ml
 
 st.set_page_config(page_title="trenddit", page_icon=":tada:", layout="wide")
 st.session_state.search_input = ""
-st.session_state.subreddit_data = reddit.load_subreddit_pickle()
-st.session_state.overlap_data = reddit.load_overlap_pickle()
-st.session_state.vector_data = reddit.load_vector_pickle()
-st.session_state.comment_tfidf_vector_data = reddit.load_comments_tfidf_pickle()
+
+if 'subreddit_data' not in st.session_state:
+    st.session_state.subreddit_data = reddit.load_subreddit_pickle()
+if 'overlap_data' not in st.session_state:
+    st.session_state.overlap_data = reddit.load_overlap_pickle()
+if 'vector_data' not in st.session_state:
+    st.session_state.vector_data = reddit.load_vector_pickle()
+if 'comment_tfidf_vector_data' not in st.session_state:
+    st.session_state.comment_tfidf_vector_data = reddit.load_comments_tfidf_pickle()
 
 pages = {
     "main": main,
@@ -60,7 +65,7 @@ with st.container():
         st.write("#")
         if st.button("Or, click here to check out a cool visualization of subreddit relationships!"):
             with st.spinner("Creating subreddit map... just a moment!"):
-                ml.plot_subreddit_clusters(reddit.load_overlap_pickle(), reddit.load_vector_pickle())
+                ml.plot_subreddit_clusters(reddit.load_vector_pickle())
 
 # -- Search results --
 if st.session_state.search_input != "":
