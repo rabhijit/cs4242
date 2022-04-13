@@ -94,10 +94,10 @@ def clean_text(input_text):
 
 
 def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10):
-    if submissions_per_subreddit > 20:
-        logger.warning("submissions_per_subreddit grows very rapidly. Consider setting a lower value.")
-        logger.error("Quitting since number of submissions is probably infeasible.")
-        return
+    # if submissions_per_subreddit > 20:
+    #     logger.warning("submissions_per_subreddit grows very rapidly. Consider setting a lower value.")
+    #     logger.error("Quitting since number of submissions is probably infeasible.")
+    #     return
     
     logger.info("Loading subreddit data from Reddit...")
     subreddit_users = {}
@@ -112,7 +112,7 @@ def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10)
     len_subs = len(popular_subs)
     for subreddit in popular_subs:
         sub_count += 1
-        logger.info(str(sub_count) + "/" + str(len_subs))
+        print(f"Subreddit scraped: {sub_count}/{len_subs}")
 
         sub_name = subreddit.display_name
 
@@ -143,6 +143,70 @@ def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10)
 
     save_to_pickle(subreddits, SUBREDDITS_PKL)
     
+    return subreddits
+
+
+def extract_subreddit_info_from_checkpoints(number_of_subreddits=NUMBER_OF_SUBREDDITS):
+    logger.info("Extracting from checkpoints...")
+    subreddit_users = {}
+    subreddit_info = {}
+    subreddit_names = {}
+    subreddit_comments = {}
+
+    popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits)]
+
+    sub_count = 0
+    len_subs = len(popular_subs)
+    for subreddit in popular_subs:
+        sub_count += 1
+
+        sub_name = subreddit.display_name
+
+        if sub_name == "Home":
+            logging.warning("Ignoring subreddit 'Home'.")
+            continue
+
+        subreddit_info[sub_name] = subreddit
+        subreddit_names[sub_name.lower()] = subreddit.display_name
+
+        comments_found = False
+        users_found = False
+
+        for checkpoint_path in os.listdir(os.path.join(DATA_ROOT, "checkpoints")):
+            matching_string_comments = f"_subname_{sub_name}_comments"
+            matching_string_users = f"_subname_{sub_name}_users"
+
+            if matching_string_comments in checkpoint_path:
+                file_path = os.path.join(DATA_ROOT, "checkpoints", checkpoint_path)
+                assert not comments_found, f"{checkpoint_path} matched multiple comments for {sub_name}."
+                comments = load_pickle(file_path)
+                comments_found = True
+
+            elif matching_string_users in checkpoint_path:
+                file_path = os.path.join(DATA_ROOT, "checkpoints", checkpoint_path)
+                assert not users_found, f"{checkpoint_path} matched multiple users for {sub_name}."
+                users = load_pickle(file_path)
+                users_found = True
+            
+            if comments_found and users_found:
+                break
+            
+        assert comments_found and users_found, f"For {sub_name}, one of the comments ({comments_found}) or users ({users_found}) was not found."
+
+        subreddit_users[sub_name] = users
+        subreddit_comments[sub_name] = comments
+
+        logger.info(f"Subreddit parsed: {sub_count}/{len_subs}")
+
+    subreddits = {
+        USERS: subreddit_users,
+        INFO: subreddit_info,
+        NAMES: subreddit_names,
+        COMMENTS: subreddit_comments
+    }
+
+    save_to_pickle(subreddits, SUBREDDITS_PKL)
+
     return subreddits
 
 

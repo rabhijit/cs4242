@@ -162,19 +162,17 @@ def generate_wordcloud(subreddit_name):
     
 
 def scrape_reddit_data():
+    subreddit_data = reddit.extract_subreddit_info_from_checkpoints()
     # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=NUMBER_OF_SUBREDDITS, submissions_per_subreddit=NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT)
-
-    subreddit_data = reddit.load_subreddit_pickle()
-    # subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
-    # load_subreddit_vectors(subreddit_overlaps)
+    subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
+    load_subreddit_vectors(subreddit_overlaps)
     load_subreddit_comment_tfidf_vectors(subreddit_data)
 
 
 def main():
-    # scrape_reddit_data()
+    scrape_reddit_data()
     # subreddit_data = reddit.load_subreddit_pickle()
-    comment_tfidfs = reddit.load_comments_tfidf_pickle()
-    get_nearest_subreddit_vectors_by_comment_tfidf('interestingasfuck', comment_tfidfs)
+    # get_nearest_subreddit_vectors_by_comment_tfidf('interestingasfuck', comment_tfidfs)
     # reddit.get_interlinked_subreddits('place', subreddit_data)
     # for subreddit_name in subreddit_data[COMMENTS]:
     #     generate_wordcloud(subreddit_name)
