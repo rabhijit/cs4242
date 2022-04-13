@@ -65,7 +65,7 @@ with st.container():
         st.write("#")
         if st.button("Or, click here to check out a cool visualization of subreddit relationships!"):
             with st.spinner("Creating subreddit map... just a moment!"):
-                ml.plot_subreddit_clusters(reddit.load_overlap_pickle(), reddit.load_vector_pickle())
+                ml.plot_subreddit_clusters(reddit.load_vector_pickle())
 
 # -- Search results --
 if st.session_state.search_input != "":

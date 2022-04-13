@@ -45,7 +45,7 @@ def view():
                     subreddit_description = reddit.get_subreddit_description(subreddit_name, st.session_state.subreddit_data)
                     subreddit_metrics = reddit.get_subreddit_metrics(subreddit_name, st.session_state.subreddit_data).style.hide_index()
                     interlinked_subreddits_by_user = reddit.get_interlinked_subreddits(subreddit_name, st.session_state.overlap_data)
-                    interlinked_subreddits_by_algebra = ml.get_nearest_subreddit_vectors_by_user(subreddit_name, st.session_state.subreddit_data, st.session_state.vector_data)
+                    interlinked_subreddits_by_algebra = ml.get_nearest_subreddit_vectors_by_user(subreddit_name, st.session_state.vector_data)
                     subreddit_comments_wordcloud = ml.generate_wordcloud(subreddit_name, st.session_state.subreddit_data)
                     similar_subreddits_by_comment_tfidf = ml.get_nearest_subreddit_vectors_by_comment_tfidf(subreddit_name, st.session_state.comment_tfidf_vector_data)
 
@@ -70,7 +70,7 @@ def view():
                 st.table(interlinked_subreddits_by_user)
                 
                 st.write("#")
-                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by user angular similarity</h6>", unsafe_allow_html=True)
+                st.markdown("<h6 style='font-size:20px; font-weight:bold;'>Most related subreddits by vector Euclidean distance</h6>", unsafe_allow_html=True)
                 st.table(interlinked_subreddits_by_algebra)
 
             except KeyError:
