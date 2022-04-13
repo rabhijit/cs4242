@@ -11,7 +11,6 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import normalize
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
-import hdbscan
 import plotly.express as px
 from wordcloud import WordCloud, STOPWORDS
 import matplotlib.pyplot as plt
@@ -122,7 +121,6 @@ def get_nearest_subreddit_vectors_by_comment_tfidf(subreddit_name, comment_tfidf
     similarity_scores = pd.DataFrame.from_dict(tfidf_similarities, orient='index')
     similarity_scores = similarity_scores.rename(columns = {0: "tfidf_similarity"})
     similarity_scores = similarity_scores.sort_values(by="tfidf_similarity", ascending=False)
-    
     return similarity_scores.head(10)
         
 
@@ -142,9 +140,7 @@ def plot_subreddit_clusters(overlap_data, vector_data):
     fig.show()
 
 
-def generate_wordcloud(subreddit_name):
-
-    subreddits = reddit.load_subreddit_pickle()
+def generate_wordcloud(subreddit_name, subreddits):
     if subreddit_name not in subreddits[COMMENTS].keys():
         logger.error("Subreddit searched for was not found in comments!")
         return
@@ -160,28 +156,10 @@ def generate_wordcloud(subreddit_name):
 
     return fig
     
-
 def scrape_reddit_data():
-    # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=NUMBER_OF_SUBREDDITS, submissions_per_subreddit=NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT)
-
     subreddit_data = reddit.load_subreddit_pickle()
-    # subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
-    # load_subreddit_vectors(subreddit_overlaps)
     load_subreddit_comment_tfidf_vectors(subreddit_data)
 
-
-def main():
-    # scrape_reddit_data()
-    # subreddit_data = reddit.load_subreddit_pickle()
-    comment_tfidfs = reddit.load_comments_tfidf_pickle()
-    get_nearest_subreddit_vectors_by_comment_tfidf('interestingasfuck', comment_tfidfs)
-    # reddit.get_interlinked_subreddits('place', subreddit_data)
-    # for subreddit_name in subreddit_data[COMMENTS]:
-    #     generate_wordcloud(subreddit_name)
-
-
-if __name__ == "__main__":
-    main()
 
 
 
