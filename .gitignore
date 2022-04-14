@@ -1,5 +1,6 @@
 # Virtual environment
 cs4242/
+reddit_env/
 
 # Private file
 praw.ini
