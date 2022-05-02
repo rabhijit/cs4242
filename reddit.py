@@ -327,6 +327,7 @@ def load_comments_tfidf_pickle():
 
 
 if __name__ == "__main__":
+    pass
 
     # Encountered problems scraping specific subreddits; doing it manually instead
 
@@ -370,19 +371,37 @@ if __name__ == "__main__":
     #         "total_comment_char_length": len("".join(comments))
     #     }
 
-    subreddits = load_subreddit_pickle()
+    # subreddits = load_subreddit_pickle()
 
-    subreddits.pop(COMMENTS, None)
-    # Delete a subreddit
-    # subreddits[USERS].pop(sub_name, None)
-    # subreddits[INFO].pop(sub_name, None)
-    # subreddits[NAMES].pop(sub_name, None)
-    # subreddits[COMMENTS].pop(sub_name, None)
-    # subreddits[COMMENT_STATS].pop(sub_name, None)
+    # subreddits.pop(COMMENTS, None)
+    # # Delete a subreddit
+    # # subreddits[USERS].pop(sub_name, None)
+    # # subreddits[INFO].pop(sub_name, None)
+    # # subreddits[NAMES].pop(sub_name, None)
+    # # subreddits[COMMENTS].pop(sub_name, None)
+    # # subreddits[COMMENT_STATS].pop(sub_name, None)
 
-    print([i for i in subreddits.keys()])
+    # print([i for i in subreddits.keys()])
 
-    save_to_pickle(subreddits, os.path.join(DATA_ROOT, "subreddits.pkl"))
+    # save_to_pickle(subreddits, os.path.join(DATA_ROOT, "subreddits.pkl"))
+
+
+    # # Truncating frequencies to top 5000
+    # from collections import Counter
+
+    # raw_frequencies = load_pickle(os.path.join(SEARCH_ROOT, "wordcloud_frequencies_raw.pkl"))
+    # truncated_frequencies = {}
+    # TOP_K = 5000
+
+    # count = 0
+    # for sub_name, frequency_counter in raw_frequencies.items():
+    #     count += 1
+    #     top_words = frequency_counter.most_common(TOP_K)
+    #     truncated_frequencies[sub_name] = Counter(dict(top_words))
+    #     if count % 250 == 0:
+    #         logger.info(f"Completed analyzing frequency number {count}.")
+    
+    # save_to_pickle(truncated_frequencies, os.path.join(SEARCH_ROOT, "wordcloud_frequencies.pkl"))
 
 
 

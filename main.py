@@ -18,7 +18,7 @@ with st.spinner("""
 Loading data files...
 
 (This will take a few minutes given the data size, and you might even get a warning from Streamlit about the "streamlit_lottie" component.
-Rest assured that this is intended, since Streamlit will warn of a timeout after a while.)"""
+Rest assured that this is intended, since Streamlit will warn of a timeout after 100 seconds.)"""
 ):
     with st.spinner("Loading subreddit and user info..."):
         if 'subreddit_data' not in st.session_state:
@@ -30,7 +30,6 @@ Rest assured that this is intended, since Streamlit will warn of a timeout after
     with st.spinner("Retrieving comment data..."):
         if 'comment_tfidf_vector_data' not in st.session_state:
             st.session_state.comment_tfidf_vector_data = reddit.load_comments_tfidf_pickle()
-    with st.spinner("Retrieving wordcloud data..."):
         if 'wordcloud_data' not in st.session_state:
             st.session_state.wordcloud_data = reddit.load_wordcloud_pickle()
 

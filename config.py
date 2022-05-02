@@ -4,7 +4,7 @@ import pickle
 
 # Search params
 SEARCH_ROOT = os.path.join(os.getcwd(), "data")
-WORDCLOUD_MAX_WORDS = 250  # Choose any reasonable number
+WORDCLOUD_MAX_WORDS = 250  # Choose any number up to 5000
 COMMENT_TFIDF_VECTOR_SIZE = 4096  # Choose 32, 64, 128, 256, 512, 1024, 2048, or 4096
 WORDCLOUD_FILE_NAME = os.path.join(SEARCH_ROOT, "wordcloud_frequencies.pkl")
 COMMENT_TFIDF_FILE_NAME = os.path.join(SEARCH_ROOT, "comment_tfidf_vectors", f"comment_vector_length_{COMMENT_TFIDF_VECTOR_SIZE}.pkl")

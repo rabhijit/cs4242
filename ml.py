@@ -153,11 +153,7 @@ def generate_wordcloud(subreddit_name, comment_frequencies):
 
     # wordcloud = WordCloud(max_font_size=200, max_words=250, width=2000, height=1000, background_color="white").generate(comments_as_string)
 
-    frequencies = comment_frequencies[subreddit_name].most_common(WORDCLOUD_MAX_WORDS)
-    truncated_frequencies = Counter(dict(frequencies))
-
-    wordcloud = WordCloud(max_words=WORDCLOUD_MAX_WORDS, **WORDCLOUD_DESIGN_PARAMETERS).generate_from_frequencies(truncated_frequencies)
-    # wordcloud = WordCloud(max_words=WORDCLOUD_MAX_WORDS, **WORDCLOUD_DESIGN_PARAMETERS).generate_from_frequencies(comment_frequencies[subreddit_name])
+    wordcloud = WordCloud(max_words=WORDCLOUD_MAX_WORDS, **WORDCLOUD_DESIGN_PARAMETERS).generate_from_frequencies(comment_frequencies[subreddit_name])
 
     fig, ax = plt.subplots()
     ax.imshow(wordcloud, interpolation="bilinear")
