@@ -4,6 +4,7 @@ import pickle
 import datetime
 import re
 import praw
+from prawcore.exceptions import ServerError, NotFound
 import pandas as pd
 
 from config import *
@@ -58,6 +59,7 @@ def get_interlinked_subreddits(subreddit_name, subreddit_overlaps):
     return top_results
 
 def load_subreddit_overlaps(subreddit_data):
+    logger.info("Calculating subreddit user overlaps...")
     subreddit_users = subreddit_data[USERS]
     subreddit_info = subreddit_data[INFO]
     subreddit_names = subreddit_data[NAMES]
@@ -91,46 +93,86 @@ def clean_text(input_text):
     return re.sub('[^A-Za-z ]', '', input_text)
 
 
-def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10):
-    # if submissions_per_subreddit > 20:
-    #     logger.warning("submissions_per_subreddit grows very rapidly. Consider setting a lower value.")
-    #     logger.error("Quitting since number of submissions is probably infeasible.")
-    #     return
+def get_popular_subs(number_of_subreddits):
+    if os.path.isfile(POPULAR_SUBREDDIT_OBJECTS_PKL):
+        return load_pickle(POPULAR_SUBREDDIT_OBJECTS_PKL)
     
+    # We will exclude subreddit 'Home' because it is the homepage for a user
+    popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits+1)]
+
+    save_to_pickle(popular_subs, POPULAR_SUBREDDIT_OBJECTS_PKL)
+    return popular_subs
+
+
+def log_error(error_message):
+    logger.error(f"\n\n{error_message}\n\n")
+    with open(ERROR_LOGS, 'a') as error_file:
+        error_file.write(f"\n{error_message}")
+
+
+def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10):
     logger.info("Loading subreddit data from Reddit...")
     subreddit_users = {}
     subreddit_info = {}
     subreddit_names = {}
     subreddit_comments = {}
-
-    popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits)]
+    
+    popular_subs = get_popular_subs(number_of_subreddits+200)
+    # problem_subs = load_pickle(SUBREDDITS_PKL)
+    # popular_sub_names = problem_subs['extra'] + problem_subs['missing']
+    # popular_subs = [reddit.subreddit(sub) for sub in popular_sub_names]
     logger.debug(f"Subreddits found: {[sub.display_name for sub in popular_subs]}")
 
+    # sub_count = 4000
     sub_count = 0
     len_subs = len(popular_subs)
     for subreddit in popular_subs:
-        sub_count += 1
-        print(f"Subreddit scraped: {sub_count}/{len_subs}")
-
         sub_name = subreddit.display_name
 
-        subreddit_info[sub_name] = subreddit
-        subreddit_names[sub_name.lower()] = subreddit.display_name
-
-        users = set()
-        comments = list()
+        if sub_name == "Home":
+            logging.warning("Ignoring subreddit 'Home'.")
+            continue
         
-        for submission in subreddit.top('all', limit=submissions_per_subreddit):
-            submission.comments.replace_more(limit=0)
-            for comment in submission.comments.list():
-                users.add(comment.author)
-                comments.append(clean_text(comment.body))
+        sub_count += 1
 
-        subreddit_users[sub_name] = users
-        subreddit_comments[sub_name] = comments
+        sub_already_scraped = False
+        checkpoint_name = f"_subname_{sub_name}_comments"
+        for checkpoint_path in os.listdir(os.path.join(DATA_ROOT, "checkpoints")):
+            if checkpoint_name in checkpoint_path:
+                logger.info(f"Subreddit {sub_name} has already been scraped. Continuing...")
+                sub_already_scraped = True
+        if sub_already_scraped:
+            continue
+        
+        try:
+            subreddit_info[sub_name] = subreddit
+            subreddit_names[sub_name.lower()] = sub_name
 
-        save_to_pickle(users, SUBREDDIT_USERS_PKL.format(sub_count, sub_name))
-        save_to_pickle(comments, SUBREDDIT_COMMENTS_PKL.format(sub_count, sub_name))
+            users = set()
+            comments = list()
+            
+            for submission in subreddit.top('all', limit=submissions_per_subreddit):
+                submission.comments.replace_more(limit=0)
+                for comment in submission.comments.list():
+                    users.add(comment.author)
+                    comments.append(clean_text(comment.body))
+
+            subreddit_users[sub_name] = users
+            subreddit_comments[sub_name] = comments
+
+            save_to_pickle(users, SUBREDDIT_USERS_PKL.format(sub_count, sub_name))
+            save_to_pickle(comments, SUBREDDIT_COMMENTS_PKL.format(sub_count, sub_name))
+
+            save_to_pickle(users, BACKUP_SUBREDDIT_USERS_PKL.format(sub_count, sub_name))
+            save_to_pickle(comments, BACKUP_SUBREDDIT_COMMENTS_PKL.format(sub_count, sub_name))
+
+            logger.info(f"Subreddit scraped: {sub_count}/{len_subs}")
+        
+        except ServerError:
+            log_error(f"Failed to scrape from sub number {sub_count} with name {sub_name}. Encountered ServerError (e.g. comment not found).")
+
+        except NotFound:
+            log_error(f"Failed to scrape from sub number {sub_count} with name {sub_name}. Encountered NotFound (e.g. subreddit not found).")
 
     subreddits = {
         USERS: subreddit_users,
@@ -145,16 +187,37 @@ def load_subreddit_data(number_of_subreddits=3000, submissions_per_subreddit=10)
 
 
 def extract_subreddit_info_from_checkpoints(number_of_subreddits=NUMBER_OF_SUBREDDITS):
+    """
+    In the following object, 'sub_name' refers to the lowercased name, e.g. "AskReddit" --> "askreddit".
+
+    Saved object structure:
+    {
+        "users": { sub_name : set of users derived from comments }
+        "info": { sub_name : Subreddit object obtained from PRAW }
+        "names": { sub_name : original name of subreddit }
+        "comments": { sub_name : list of cleaned comments scraped from subreddit }
+    }
+
+    """
     logger.info("Extracting from checkpoints...")
     subreddit_users = {}
     subreddit_info = {}
     subreddit_names = {}
     subreddit_comments = {}
 
-    popular_subs = [sub for sub in reddit.subreddits.popular(limit=number_of_subreddits)]
+    popular_subs = get_popular_subs(number_of_subreddits+200)
 
     sub_count = 0
     len_subs = len(popular_subs)
+
+    comments_found = {}
+    users_found = {}
+
+    # problematic_subs = {
+    #     'extra': [],
+    #     'missing': []
+    # }
+
     for subreddit in popular_subs:
         sub_count += 1
 
@@ -167,29 +230,38 @@ def extract_subreddit_info_from_checkpoints(number_of_subreddits=NUMBER_OF_SUBRE
         subreddit_info[sub_name] = subreddit
         subreddit_names[sub_name.lower()] = subreddit.display_name
 
-        comments_found = False
-        users_found = False
-
         for checkpoint_path in os.listdir(os.path.join(DATA_ROOT, "checkpoints")):
             matching_string_comments = f"_subname_{sub_name}_comments"
             matching_string_users = f"_subname_{sub_name}_users"
 
             if matching_string_comments in checkpoint_path:
                 file_path = os.path.join(DATA_ROOT, "checkpoints", checkpoint_path)
-                assert not comments_found, f"{checkpoint_path} matched multiple comments for {sub_name}."
+                assert sub_name not in comments_found, f"{checkpoint_path} matched multiple comments for {sub_name}. Also matched: {comments_found[sub_name]}."
+                # if sub_name in comments_found:
+                #     problematic_subs['extra'].append(sub_name)
+                    
                 comments = load_pickle(file_path)
-                comments_found = True
+                comments_found[sub_name] = checkpoint_path
 
             elif matching_string_users in checkpoint_path:
                 file_path = os.path.join(DATA_ROOT, "checkpoints", checkpoint_path)
-                assert not users_found, f"{checkpoint_path} matched multiple users for {sub_name}."
+                assert sub_name not in users_found, f"{checkpoint_path} matched multiple users for {sub_name}. Also matched: {users_found[sub_name]}."
+                # if sub_name in users_found:
+                #     problematic_subs['extra'].append(sub_name)
+
                 users = load_pickle(file_path)
-                users_found = True
+                users_found[sub_name] = checkpoint_path
             
-            if comments_found and users_found:
+            if sub_name in comments_found and sub_name in users_found:
                 break
             
-        assert comments_found and users_found, f"For {sub_name}, one of the comments ({comments_found}) or users ({users_found}) was not found."
+        assert sub_name in comments_found, f"For {sub_name}, the comments were not found."
+        assert sub_name in users_found, f"For {sub_name}, the users were not found."
+        # if sub_name not in comments_found:
+        #     problematic_subs['missing'].append(sub_name)
+        # if sub_name not in users_found:
+        #     problematic_subs['missing'].append(sub_name)
+
 
         subreddit_users[sub_name] = users
         subreddit_comments[sub_name] = comments
@@ -204,13 +276,33 @@ def extract_subreddit_info_from_checkpoints(number_of_subreddits=NUMBER_OF_SUBRE
     }
 
     save_to_pickle(subreddits, SUBREDDITS_PKL)
+    # save_to_pickle(problematic_subs, SUBREDDITS_PKL)
 
-    return subreddits
+    # problematic_subs = load_pickle(SUBREDDITS_PKL)
+
+    # logger.error(len(problematic_subs['extra']))
+    # logger.error(len(problematic_subs['missing']))
+    # logger.error(problematic_subs)
+
+    # return subreddits
+
+
+def add_comment_statistics():
+    subreddits = load_subreddit_pickle()
+    comment_stats = {}
+    for sub_name, comments in subreddits[COMMENTS].items():
+        comment_stats[sub_name] = {
+            "number_of_comments": len(comments),
+            "total_comment_char_length": len("".join(comments))
+        }
+
+    subreddits[COMMENT_STATS] = comment_stats
+    save_to_pickle(subreddits, SUBREDDITS_PKL)
 
 
 def load_pickle(pkl):
     if os.path.isfile(pkl):
-        logger.info(f"A pickle file with the name {pkl} already exists. Loading existing file.")
+        logger.debug(f"A pickle file with the name {pkl} already exists. Loading existing file.")
         with open(pkl, 'rb') as f:
             data = pickle.load(f)
         return data
@@ -219,13 +311,78 @@ def load_pickle(pkl):
         return None
 
 def load_subreddit_pickle():
-    return load_pickle(SUBREDDITS_PKL)
+    return load_pickle(SUBREDDIT_INFO_FILE_NAME)
 
 def load_overlap_pickle():
-    return load_pickle(OVERLAPS_PKL)
+    return load_pickle(USER_OVERLAP_INFO_FILE_NAME)
 
 def load_vector_pickle():
-    return load_pickle(VECTORS_PKL)
+    return load_pickle(USER_VECTOR_INFO_FILE_NAME)
+
+def load_wordcloud_pickle():
+    return load_pickle(WORDCLOUD_FILE_NAME)
 
 def load_comments_tfidf_pickle():
-    return load_pickle(COMMENT_TFIDF_VECTORS_PKL)
+    return load_pickle(COMMENT_TFIDF_FILE_NAME)
+
+
+if __name__ == "__main__":
+
+    # Encountered problems scraping specific subreddits; doing it manually instead
+
+    # for file in os.listdir(os.path.join(DATA_ROOT, "checkpoints")):
+    #     if "AmItheAsshole" in file:
+    #         print(file)
+    
+    # import prawcore
+
+    # sub_name = "AmItheAsshole"
+    # subreddit = reddit.subreddit(sub_name)
+    # sub_count = 4079
+
+    # logger.info(f"Scraping sub name {sub_name}")
+
+    # users = set()
+    # comments = list()
+
+    # for submission in subreddit.top('all', limit=NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT):
+    #     try:
+    #         submission.comments.replace_more(limit=0)
+    #         for comment in submission.comments.list():
+    #             users.add(comment.author)
+    #             comments.append(clean_text(comment.body))
+    #     except ServerError as e:
+    #         logger.warning(f"Skipping due to error {e}")
+
+    # save_to_pickle(users, SUBREDDIT_USERS_PKL.format(sub_count, sub_name))
+    # save_to_pickle(comments, SUBREDDIT_COMMENTS_PKL.format(sub_count, sub_name))
+
+    # save_to_pickle(users, BACKUP_SUBREDDIT_USERS_PKL.format(sub_count, sub_name))
+    # save_to_pickle(comments, BACKUP_SUBREDDIT_COMMENTS_PKL.format(sub_count, sub_name))
+
+    # subreddits = load_subreddit_pickle()
+    # subreddits[USERS][sub_name] = users
+    # subreddits[INFO][sub_name] = subreddit
+    # subreddits[NAMES][sub_name] = subreddit.display_name
+    # subreddits[COMMENTS][sub_name] = comments
+    # subreddits[COMMENT_STATS][sub_name] = {
+    #         "number_of_comments": len(comments),
+    #         "total_comment_char_length": len("".join(comments))
+    #     }
+
+    subreddits = load_subreddit_pickle()
+
+    subreddits.pop(COMMENTS, None)
+    # Delete a subreddit
+    # subreddits[USERS].pop(sub_name, None)
+    # subreddits[INFO].pop(sub_name, None)
+    # subreddits[NAMES].pop(sub_name, None)
+    # subreddits[COMMENTS].pop(sub_name, None)
+    # subreddits[COMMENT_STATS].pop(sub_name, None)
+
+    print([i for i in subreddits.keys()])
+
+    save_to_pickle(subreddits, os.path.join(DATA_ROOT, "subreddits.pkl"))
+
+
+

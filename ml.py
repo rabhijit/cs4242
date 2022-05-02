@@ -1,6 +1,7 @@
 from cmath import pi
 import pickle
 import logging
+from collections import Counter
 
 import pandas as pd
 import numpy as np
@@ -24,16 +25,9 @@ logger = logging.getLogger()
 logging.basicConfig(level=LOGGING_LEVEL, format="%(levelname)s: |%(name)s| %(message)s")
 
 
-"""
-Features to implement:
-- Calculating similarity scores based on word association?
-    - Requires tokenization, removal of stopwords etc
-    - Search for a subreddit, display all the similar subs by word association
-
-"""
-
 
 def load_subreddit_vectors(overlap_data):
+    logger.info("Creating subreddit vectors...")
     subreddit_popularity = overlap_data.groupby('s2')['overlap'].sum()
     subreddits = np.array(subreddit_popularity.sort_values(ascending=False).index)
     index_map = dict(np.vstack([subreddits, np.arange(subreddits.shape[0])]).T)
@@ -60,11 +54,12 @@ def load_subreddit_vectors(overlap_data):
     return subreddit_map_df
 
 
-def load_subreddit_comment_tfidf_vectors(subreddit_data):
+def load_subreddit_comment_tfidf_vectors(subreddit_comments, max_features):
+    logger.info(f"Creating comment tfidf vectors with {max_features} vector length...")
     combined_comments = {}
-    for subreddit_name in subreddit_data[COMMENTS]:
+    for subreddit_name, comments in subreddit_comments.items():
         all_comments = []
-        for comment in subreddit_data[COMMENTS][subreddit_name]:
+        for comment in comments:
             comment = comment.lower()
             comment_words = comment.split(" ")
             comment_words = [word for word in comment_words if word not in STOPWORDS]
@@ -75,7 +70,7 @@ def load_subreddit_comment_tfidf_vectors(subreddit_data):
     df_comments = df_comments.reset_index()
     df_comments = df_comments.rename(columns = {'index': 'subreddit_name', 0: "combined_comments"})
 
-    vectorizer = TfidfVectorizer(max_features=256)
+    vectorizer = TfidfVectorizer(max_features=max_features)
     tfidf_vectors = vectorizer.fit_transform(df_comments['combined_comments'])
 
     subreddit_names = df_comments['subreddit_name'].tolist()
@@ -83,7 +78,7 @@ def load_subreddit_comment_tfidf_vectors(subreddit_data):
 
     comment_tfidf_vectors = dict(zip(subreddit_names, tfidf_vectors))
 
-    save_to_pickle(comment_tfidf_vectors, COMMENT_TFIDF_VECTORS_PKL)
+    save_to_pickle(comment_tfidf_vectors, get_comment_tfidf_file_name(max_features))
 
 
 def get_nearest_subreddit_vectors_by_user(subreddit_name, vector_data):
@@ -146,37 +141,121 @@ def plot_subreddit_clusters(vector_data):
     fig.show()
 
 
-def generate_wordcloud(subreddit_name, subreddits):
-    if subreddit_name not in subreddits[COMMENTS].keys():
-        logger.error("Subreddit searched for was not found in comments!")
-        return
-    
-    # Transform into a string
-    comments_as_string = " ".join(subreddits[COMMENTS][subreddit_name])
+def generate_wordcloud(subreddit_name, comment_frequencies):
+    # If generating from scratch:
 
-    wordcloud = WordCloud(max_font_size=200, max_words=500, width=2000, height=1000, background_color="white").generate(comments_as_string)
+    # if subreddit_name not in subreddits[COMMENTS].keys():
+    #     logger.error("Subreddit searched for was not found in comments!")
+    #     return
+    
+    # # Transform into a string
+    # comments_as_string = " ".join(subreddits[COMMENTS][subreddit_name])
+
+    # wordcloud = WordCloud(max_font_size=200, max_words=250, width=2000, height=1000, background_color="white").generate(comments_as_string)
+
+    frequencies = comment_frequencies[subreddit_name].most_common(WORDCLOUD_MAX_WORDS)
+    truncated_frequencies = Counter(dict(frequencies))
+
+    wordcloud = WordCloud(max_words=WORDCLOUD_MAX_WORDS, **WORDCLOUD_DESIGN_PARAMETERS).generate_from_frequencies(truncated_frequencies)
+    # wordcloud = WordCloud(max_words=WORDCLOUD_MAX_WORDS, **WORDCLOUD_DESIGN_PARAMETERS).generate_from_frequencies(comment_frequencies[subreddit_name])
 
     fig, ax = plt.subplots()
     ax.imshow(wordcloud, interpolation="bilinear")
     ax.axis("off")
 
     return fig
+
+
+def save_all_wordclouds(subreddit_comments):
+    logger.info("Generating and saving wordclouds...")
+    wordcloud_word_count_options = [100]
+    # wordcloud_word_count_options = [100, 250, 500]
+
+    for word_count in wordcloud_word_count_options:
+        wordcloud_file_name = get_wordcloud_file_name(word_count)
+
+        wordclouds = {}
+
+        for sub_name, comments in subreddit_comments.items():
+            try:
+                comments_as_string = " ".join(comments)
+                wordcloud = WordCloud(max_font_size=200, max_words=word_count, width=2000, height=1000, background_color="white").generate(comments_as_string)
+                
+                wordclouds[sub_name] = wordcloud
+            except ValueError as e:
+                logger.error(f"Failed to generate wordcloud for {sub_name} with word count {word_count}")
+        
+        save_to_pickle(wordclouds, wordcloud_file_name)
+
+        # wordclouds = reddit.load_pickle(wordcloud_file_name)
+        # wordcloud = wordclouds["AskReddit"]
+        # fig = plt.figure()
+        # plt.imshow(wordcloud, interpolation="bilinear")
+        # plt.axis("off")
+        # fig.savefig(os.path.join(WORDCLOUD_DIR, f"wordcloud_{word_count}_words.png"))
+
+
+def generate_comment_frequency_for_wordclouds(all_comments):
+    """Pickles a Counter object for each subreddit."""
+
+    wordcloud_frequency_file_name = os.path.join(DATA_ROOT, "wordclouds", "wordcloud_frequencies.pkl")
+    stopwords = [word.lower() for word in STOPWORDS]
+
+    word_frequencies = {}
+
+    for sub_name, comments in all_comments.items():
+        try:
+            comments_as_string = " ".join(comments).lower()
+            comment_tokens = (comments_as_string).split(" ")
+            comment_tokens = [token for token in comment_tokens if token not in stopwords and token != ""]
+
+            sub_word_frequencies = Counter(comment_tokens)
+
+            word_frequencies[sub_name] = sub_word_frequencies
+
+            logger.info(f"Generated wordcloud frequencies for {sub_name}.")
+
+            # wordcloud = WordCloud(max_words=500, background_color='white').generate_from_frequencies(frequencies)
+
+            # fig = plt.figure()
+            # plt.imshow(wordcloud, interpolation="bilinear")
+            # plt.axis("off")
+            # fig.savefig(os.path.join(WORDCLOUD_DIR, f"test_cloud.png"))
+        except ValueError as e:
+            logger.error(f"Failed to generate wordcloud frequencies for {sub_name}.")
+
+    save_to_pickle(word_frequencies, wordcloud_frequency_file_name)
+
     
 def scrape_reddit_data():
-    subreddit_data = reddit.extract_subreddit_info_from_checkpoints()
+    # subreddit_data = reddit.extract_subreddit_info_from_checkpoints()
     # subreddit_data = reddit.load_subreddit_data(number_of_subreddits=NUMBER_OF_SUBREDDITS, submissions_per_subreddit=NUMBER_OF_SUBMISSIONS_PER_SUBREDDIT)
-    subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
-    load_subreddit_vectors(subreddit_overlaps)
-    load_subreddit_comment_tfidf_vectors(subreddit_data)
+    subreddit_data = reddit.load_subreddit_pickle()
+    # subreddit_overlaps = reddit.load_subreddit_overlaps(subreddit_data)
+    # load_subreddit_vectors(subreddit_overlaps)
+    # for vector_length in [2048, 4096]:
+    # for vector_length in [32, 64, 128, 256, 512, 1024]:
+        # load_subreddit_comment_tfidf_vectors(subreddit_data[COMMENTS], vector_length)
+    # save_all_wordclouds(subreddit_data[COMMENTS])
 
 
 def main():
-    scrape_reddit_data()
     # subreddit_data = reddit.load_subreddit_pickle()
+    scrape_reddit_data()
+    # print(len(os.listdir(os.path.join(DATA_ROOT, "checkpoints"))))
     # get_nearest_subreddit_vectors_by_comment_tfidf('interestingasfuck', comment_tfidfs)
     # reddit.get_interlinked_subreddits('place', subreddit_data)
     # for subreddit_name in subreddit_data[COMMENTS]:
     #     generate_wordcloud(subreddit_name)
+    # reddit.add_comment_statistics()
+
+    # toy_data = subreddit_data[COMMENTS]["AskReddit"]
+    # save_to_pickle(toy_data, os.path.join(DATA_ROOT, "toy_subreddits"))
+
+    # toy_data = reddit.load_pickle(os.path.join(DATA_ROOT, "toy_subreddits"))
+    # save_all_wordclouds(subreddit_data[COMMENTS])
+    # save_all_wordclouds({})
+
 
 
 if __name__ == "__main__":

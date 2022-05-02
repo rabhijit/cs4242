@@ -14,14 +14,25 @@ import ml
 st.set_page_config(page_title="trenddit", page_icon=":tada:", layout="wide")
 st.session_state.search_input = ""
 
-if 'subreddit_data' not in st.session_state:
-    st.session_state.subreddit_data = reddit.load_subreddit_pickle()
-if 'overlap_data' not in st.session_state:
-    st.session_state.overlap_data = reddit.load_overlap_pickle()
-if 'vector_data' not in st.session_state:
-    st.session_state.vector_data = reddit.load_vector_pickle()
-if 'comment_tfidf_vector_data' not in st.session_state:
-    st.session_state.comment_tfidf_vector_data = reddit.load_comments_tfidf_pickle()
+with st.spinner("""
+Loading data files...
+
+(This will take a few minutes given the data size, and you might even get a warning from Streamlit about the "streamlit_lottie" component.
+Rest assured that this is intended, since Streamlit will warn of a timeout after a while.)"""
+):
+    with st.spinner("Loading subreddit and user info..."):
+        if 'subreddit_data' not in st.session_state:
+            st.session_state.subreddit_data = reddit.load_subreddit_pickle()
+        if 'overlap_data' not in st.session_state:
+            st.session_state.overlap_data = reddit.load_overlap_pickle()
+        if 'vector_data' not in st.session_state:
+            st.session_state.vector_data = reddit.load_vector_pickle()
+    with st.spinner("Retrieving comment data..."):
+        if 'comment_tfidf_vector_data' not in st.session_state:
+            st.session_state.comment_tfidf_vector_data = reddit.load_comments_tfidf_pickle()
+    with st.spinner("Retrieving wordcloud data..."):
+        if 'wordcloud_data' not in st.session_state:
+            st.session_state.wordcloud_data = reddit.load_wordcloud_pickle()
 
 pages = {
     "main": main,
